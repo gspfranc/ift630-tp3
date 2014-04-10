@@ -16,72 +16,87 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+//#include <unistd.h>
 
 #define PORT_NUM 5000
-#define NUM_CLIENTS	1
-void error(const char *msg)
+#define NUM_CLIENTS	5
+
+
+void doprocessing (int sock)
 {
-    perror(msg);
-    exit(1);
+    int n;
+    char buffer[256];
+
+    memset(buffer,0,256);
+
+    n = read(sock,buffer,255);
+    if (n < 0)
+    {
+        printf("printf reading from socket");
+        exit(1);
+    }
+    printf("[SERVER] Request Received: %s\n",buffer);
+    n = write(sock,"[[file.txt]]",12);
+    if (n < 0) 
+    {
+        printf("printf writing to socket");
+        exit(1);
+    }
+	//pthread_exit(NULL);
 }
 
 
 void *Server(void *threadid){
-      int sockfd, newsockfd, portno;
+ int sockfd, newsockfd, portno;
      socklen_t clilen;
      char buffer[256];
      struct sockaddr_in serv_addr, cli_addr;
      int n;
-	printf("Strting to init socket \n");
-	
-	/** INIT **/
+
      sockfd = socket(AF_INET, SOCK_STREAM, 0);
      if (sockfd < 0) 
-        error("ERROR opening socket");
+        printf("ERROR opening socket \n");
      memset((char *) &serv_addr,0, sizeof(serv_addr));
      portno = PORT_NUM;
      serv_addr.sin_family = AF_INET;
      serv_addr.sin_addr.s_addr = INADDR_ANY;
      serv_addr.sin_port = htons(portno);
-     
-	 /** BIDING **/
-	 if (bind(sockfd, (struct sockaddr *) &serv_addr,
+     if (bind(sockfd, (struct sockaddr *) &serv_addr,
               sizeof(serv_addr)) < 0) 
-              error("ERROR on binding");
-			  
-	
-	while(true){
-	 printf("[SERVER] Waiting for a request \n");
-	/** LISTEN **/		  
+              printf("ERROR on binding \n");
      listen(sockfd,5);
-     clilen = sizeof(cli_addr);
 	 
-	 /** ACCEPT **/
-     newsockfd = accept(sockfd, 
-                 (struct sockaddr *) &cli_addr, 
-                 &clilen);
-     if (newsockfd < 0) 
-          error("ERROR on accept");
-     
-	 memset(buffer,0,256);
-	 
-	 /** READ **/
-     n = read(newsockfd,buffer,255);
-	 
-     if (n < 0) error("ERROR reading from socket");
-	 
-     printf("[SERVER] Request received from a client \n");
-	 
-     n = write(newsockfd,"[[file.txt]]",18);
-     if (n < 0) error("ERROR writing to socket");
-	 
-	}
-     close(newsockfd);
-     close(sockfd);
-	 
-	pthread_exit(NULL);
- 
- }
+    clilen = sizeof(cli_addr);
+    while (1) 
+    {
+        newsockfd = accept(sockfd, 
+                (struct sockaddr *) &cli_addr, &clilen);
+        if (newsockfd < 0)
+        {
+            printf("ERROR on accept");
+            exit(1);
+        }
+        /* Create child process */
+        pid_t pid = fork();
+        if (pid < 0)
+        {
+            printf("ERROR on fork");
+	    exit(1);
+        }
+        if (pid == 0)  
+        {
+            /* This is the client process */
+            close(sockfd);
+            doprocessing(newsockfd);
+            exit(0);
+        }
+        else
+        {
+            close(newsockfd);
+        }
+    } /* end of while */
+}
+
  
  
  
@@ -96,10 +111,10 @@ void *Server(void *threadid){
 	/** INIT **/
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) 
-        error("ERROR opening socket");
+        printf("printf opening socket");
     server = gethostbyname("localhost");
     if (server == NULL) {
-        fprintf(stderr,"ERROR, no such host\n");
+        fprintf(stderr,"printf, no such host\n");
         exit(0);
     }
     memset((char *) &serv_addr,0, sizeof(serv_addr));
@@ -111,18 +126,18 @@ void *Server(void *threadid){
     
 	/** CONNECT **/
 	if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
-        error("ERROR connecting");
+        printf("printf connecting");
     memset(buffer,0,256);
 	
 	/** WRITE **/
 	
     n = write(sockfd,"REQUEST FILE",12);
     if (n < 0) 
-         error("ERROR sending request");
+         printf("printf sending request");
 
     n = read(sockfd,buffer,255);
     if (n < 0) 
-         error("ERROR reading from socket");
+         printf("printf reading from socket");
     printf("[CLIENT] I received: %s\n",buffer);
     close(sockfd);
     return 0;
@@ -146,7 +161,7 @@ int t;
 
 	rc = pthread_create(&serveur, NULL, Server, (void *)t);
       if (rc){
-         printf("ERROR; CANNOT START SERVER return code from pthread_create() is %d\n", rc);
+         printf(" CANNOT START SERVER return code from pthread_create() is %d\n", rc);
          exit(-1);
       }
 	  printf("Server is started \n");
@@ -155,7 +170,7 @@ int t;
    for(t=0; t<NUM_CLIENTS; t++){
       rc = pthread_create(&clients[t], NULL, Client, (void *)t);
       if (rc){
-         printf("ERROR; return code from pthread_create() is %d\n", rc);
+         printf(" return code from pthread_create() is %d\n", rc);
          exit(-1);
       }
 	  printf("client is started: %ld\n", t+1);
