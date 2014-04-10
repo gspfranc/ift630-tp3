@@ -15,6 +15,7 @@
 #include <sys/types.h> 
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 
 #define PORT_NUM 5000
 #define NUM_CLIENTS	1
@@ -48,6 +49,9 @@ void *Server(void *threadid){
               sizeof(serv_addr)) < 0) 
               error("ERROR on binding");
 			  
+	
+	while(true){
+	 printf("[SERVER] Waiting for a request \n");
 	/** LISTEN **/		  
      listen(sockfd,5);
      clilen = sizeof(cli_addr);
@@ -66,10 +70,12 @@ void *Server(void *threadid){
 	 
      if (n < 0) error("ERROR reading from socket");
 	 
-     printf("Here is the message: %s\n",buffer);
+     printf("[SERVER] Request received from a client \n");
 	 
-     n = write(newsockfd,"I got your message",18);
+     n = write(newsockfd,"[[file.txt]]",18);
      if (n < 0) error("ERROR writing to socket");
+	 
+	}
      close(newsockfd);
      close(sockfd);
 	 
@@ -98,26 +104,26 @@ void *Server(void *threadid){
     }
     memset((char *) &serv_addr,0, sizeof(serv_addr));
     serv_addr.sin_family = AF_INET;
-    bcopy((char *)server->h_addr, 
-         (char *)&serv_addr.sin_addr.s_addr,
+    memcpy((char *)&serv_addr.sin_addr.s_addr,
+	       (char *)server->h_addr,
          server->h_length);
     serv_addr.sin_port = htons(portno);
     
 	/** CONNECT **/
 	if (connect(sockfd,(struct sockaddr *) &serv_addr,sizeof(serv_addr)) < 0) 
         error("ERROR connecting");
-    printf("Please enter the message: ");
     memset(buffer,0,256);
-    fgets(buffer,255,stdin);
+	
 	/** WRITE **/
-    n = write(sockfd,buffer,strlen(buffer));
+	
+    n = write(sockfd,"REQUEST FILE",12);
     if (n < 0) 
-         error("ERROR writing to socket");
-    memset(buffer,0,256);
+         error("ERROR sending request");
+
     n = read(sockfd,buffer,255);
     if (n < 0) 
          error("ERROR reading from socket");
-    printf("%s\n",buffer);
+    printf("[CLIENT] I received: %s\n",buffer);
     close(sockfd);
     return 0;
   pthread_exit(NULL);

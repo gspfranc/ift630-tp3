@@ -1,2 +1,2 @@
 all:
-	g++ test.cpp -lsocket -o test
+	g++ test.cpp -lsocket -lnsl -o test
