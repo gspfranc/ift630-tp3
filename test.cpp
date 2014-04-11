@@ -25,7 +25,7 @@
 #define PORT_NUM 5000
 #define NUM_CLIENTS	50
 
-//typedef void Sigfunc(int);
+typedef void Sigfunc(int);
 //Sigfunc *signal(int,Sigfunc *);
 
 void doprocessing (int sock)
@@ -61,16 +61,17 @@ void doprocessing (int sock)
     }
 }
 
-int sockfd, newsockfd, no_de_port;
+int sock_server, new_sock_server;
 void *Server(void *threadid)
 {
+	int no_de_port;
     socklen_t clilen;
     char buffer[256];
     struct sockaddr_in adresse_serveur, adresse_client;
     int n;
 
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
+    sock_server = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock_server < 0)
         printf("Impossible d'ouvrir la socket \n");
 
     //Remplir de zero
@@ -83,18 +84,18 @@ void *Server(void *threadid)
     adresse_serveur.sin_port = htons(no_de_port);
 
     //Binder la socket
-    if (bind(sockfd, (struct sockaddr *) &adresse_serveur,
+    if (bind(sock_server, (struct sockaddr *) &adresse_serveur,
              sizeof(adresse_serveur)) < 0)
         printf("Impossible de binder la socket \n");
-    listen(sockfd,5);
+    listen(sock_server,5);
 
     clilen = sizeof(adresse_client);
     while (1) //Pour toujours
     {
         //ACCEPT
-        newsockfd = accept(sockfd,
+        new_sock_server = accept(sock_server,
                            (struct sockaddr *) &adresse_client, &clilen);
-        if (newsockfd < 0)
+        if (new_sock_server < 0)
         {
             printf("ERROR on accept");
             exit(1);
@@ -109,30 +110,23 @@ void *Server(void *threadid)
         if (pid == 0)
         {
             /* C'est le client */
-            close(sockfd);
-            doprocessing(newsockfd);
+            close(sock_server);
+            doprocessing(new_sock_server);
             exit(0);
         }
         else
         {
             //fermeture des sockets
-            close(newsockfd);
+            close(new_sock_server);
         }
     } /* end of while */
 }
 
-void cleanExit()
-{
-    printf("Kill signal received... closing sockets");
-    close(sockfd);
-    close(newsockfd);
-    exit(0);
-}
 
-
+int sockfd_client;
 void *Client(void *threadid)
 {
-    int sockfd, no_de_port, n;
+int no_de_port,n;
     struct sockaddr_in adresse_serveur;
     struct hostent *server;
     std::ofstream myfile;
@@ -141,8 +135,8 @@ void *Client(void *threadid)
 
     no_de_port = PORT_NUM;
     /** INIT **/
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0)
+    sockfd_client = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd_client < 0)
         printf("Impossible de créer la socket");
 
     server = gethostbyname("localhost");
@@ -159,17 +153,17 @@ void *Client(void *threadid)
     adresse_serveur.sin_port = htons(no_de_port);
 
     /** CONNECT **/
-    if (connect(sockfd,(struct sockaddr *) &adresse_serveur,sizeof(adresse_serveur)) < 0)
+    if (connect(sockfd_client,(struct sockaddr *) &adresse_serveur,sizeof(adresse_serveur)) < 0)
         printf("printf connecting");
     memset(buffer,0,256);
 
 
     /** WRITE **/
-    n = write(sockfd,"file.txt",8);
+    n = write(sockfd_client,"file.txt",8);
     if (n < 0)
         printf("Impossible d'envoyer la request");
 
-    n = read(sockfd,buffer,255);
+    n = read(sockfd_client,buffer,255);
     if (n < 0)
         printf("Impossible de lire la reponse de la socket");
     printf("[CLIENT] I received: %s\n",buffer);
@@ -178,14 +172,20 @@ void *Client(void *threadid)
     //Écriture dans le fichier
     myfile << buffer;
     myfile.close();
-    close(sockfd);
+    close(sockfd_client);
     return 0;
     pthread_exit(NULL);
 
 }
 
-
-
+void cleanExit(int code)
+{
+    printf(" \n Kill signal received... closing sockets \n");
+    close(sock_server);
+    close(new_sock_server);
+	//close(sockfd_client);
+    exit(0);
+}
 
 main()
 {
@@ -195,7 +195,7 @@ main()
 
 
 //***Enregistrement des handler de signals***//
-// signal(SIGINT,cleanExit);
+   signal(SIGINT,cleanExit);
 
 
 
